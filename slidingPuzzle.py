@@ -16,16 +16,16 @@ class ImageSegment():
 
 class SlidingPuzzle():
     def __init__(self, screenWidthIn, screenHeightIn):
-        #Initialize Snake variables (positioning variables are measured in pixels, further initialization done in first resetPuzzle() call)
+        #Initialize puzzle variables (positioning variables are measured in pixels, further initialization done in first resetPuzzle() call)
         self.screenWidth = screenWidthIn #width of the entire screen in pixels
         self.screenHeight = screenHeightIn #height of the entire screen in pixels
-        self.snakeFieldWidth = screenWidthIn - 55 #total size in pixels of the field width (55 pixel buffer from window border)
-        self.snakeFieldHeight = screenHeightIn - 55 #total size in pixels of the field height (10 pixel buffer from window border, 45 pixels for score pane)
+        self.puzzleFieldWidth = screenWidthIn - 55 #total size in pixels of the field width (55 pixel buffer from window border)
+        self.puzzleFieldHeight = screenHeightIn - 55 #total size in pixels of the field height (10 pixel buffer from window border, 45 pixels for score pane)
         #calculate offset values to ensure centering regardless of screen size change
-        self.snakeScorePaneHeight = 45 #total size in pixels of the score pane height (the width will be equal to the screen width) 
-        self.xOffset = int((self.screenWidth - self.snakeFieldWidth - 2) / 2) #subtract 2 as 2 is the border size
-        self.yOffset = int((self.screenHeight - self.snakeFieldHeight - self.snakeScorePaneHeight - 2) / 2) #subtract 2 as 2 is the border size
-        self.slideTimeDuration = .3 #modified time rate used in conjunction with snakePreviousTimeInt to determine when ticks should occur
+        self.puzzleScorePaneHeight = 45 #total size in pixels of the score pane height (the width will be equal to the screen width) 
+        self.xOffset = int((self.screenWidth - self.puzzleFieldWidth - 2) / 2) #subtract 2 as 2 is the border size
+        self.yOffset = int((self.screenHeight - self.puzzleFieldHeight - self.puzzleScorePaneHeight - 2) / 2) #subtract 2 as 2 is the border size
+        #self.slideTimeDuration = .3 #modified time rate used in conjunction with puzzlePreviousTimeInt to determine when ticks should occur
         self.toggledLeftArrowThisPress = False #variable to keep track of when the left arrow key is pressed, to simulate a 'key press' event that triggers on a single frame only
         self.toggledRightArrowThisPress = False
         self.toggledQThisPress = False
@@ -44,7 +44,7 @@ class SlidingPuzzle():
     def loadPuzzleImage(self,name="pygameLogo.png"):
         self.imageName = name
         self.image = self.loadImage(self.imageName)
-        self.smallImage = pygame.transform.smoothscale(self.image,(int(self.snakeFieldWidth/4),int(self.snakeFieldHeight/4)))
+        self.smallImage = pygame.transform.smoothscale(self.image,(int(self.puzzleFieldWidth/4),int(self.puzzleFieldHeight/4)))
         
     def loadImage(self, imageName, colorkey=None):
         fullname = os.path.join(imageName)
@@ -58,7 +58,7 @@ class SlidingPuzzle():
             if colorkey is -1:
                 colorkey = image.get_at((0,0))
             image.set_colorkey(colorkey, RLEACCEL)
-        image = pygame.transform.smoothscale(image,(self.snakeFieldWidth, self.snakeFieldHeight))
+        image = pygame.transform.smoothscale(image,(self.puzzleFieldWidth, self.puzzleFieldHeight))
         return image
     
     def swapPieces(self,pieceA,pieceB):
@@ -76,16 +76,16 @@ class SlidingPuzzle():
             for r in range(self.gridSize):
                 if (self.randomizedPuzzlePieces[i][r].x != self.randomizedPuzzlePieces[i][r].correctX or self.randomizedPuzzlePieces[i][r].y != self.randomizedPuzzlePieces[i][r].correctY):
                     return
-        self.snakeState = 2
+        self.puzzleState = 2
         self.won = True 
         
     def resetPuzzle(self,newState = 0):
-        self.snakeState = newState #simple state machine used for game state (0 = awaiting first start, 1 = active, 2 = awaiting restart)
+        self.puzzleState = newState #simple state machine used for game state (0 = awaiting first start, 1 = active, 2 = awaiting restart)
         self.deltaTime = 0 #time passed (in seconds, not milliseconds) this frame/tick (reset here so that delta time from starting frame is not factored into first running frame)
         self.solveTime = 0 #time taken to solve the puzzle
         self.puzzlePieces = [] #2d list of puzzle pieces, where (i,r) correspond to (correctX,correctY)
-        self.gridSquareWidth = self.snakeFieldWidth / self.gridSize
-        self.gridSquareHeight = self.snakeFieldHeight / self.gridSize
+        self.gridSquareWidth = self.puzzleFieldWidth / self.gridSize
+        self.gridSquareHeight = self.puzzleFieldHeight / self.gridSize
         self.curEmptyX = self.gridSize-1
         self.curEmptyY = 0
         self.won = False
@@ -126,30 +126,30 @@ class SlidingPuzzle():
     def checkMouseClickPuzzle(self):
         for i in range(self.gridSize):
             for r in range(self.gridSize):
-                if (pygame.Rect(self.xOffset+self.randomizedPuzzlePieces[i][r].x*self.gridSquareWidth,self.snakeScorePaneHeight+self.yOffset+self.randomizedPuzzlePieces[i][r].y*self.gridSquareHeight,self.gridSquareWidth,self.gridSquareHeight)).collidepoint(pygame.mouse.get_pos()):
+                if (pygame.Rect(self.xOffset+self.randomizedPuzzlePieces[i][r].x*self.gridSquareWidth,self.puzzleScorePaneHeight+self.yOffset+self.randomizedPuzzlePieces[i][r].y*self.gridSquareHeight,self.gridSquareWidth,self.gridSquareHeight)).collidepoint(pygame.mouse.get_pos()):
                     self.tryShiftPiece(i,r)
                         
     def checkPuzzleInput(self): #Handle Input Events   
-        if (self.snakeState == 1):   
+        if (self.puzzleState == 1):   
             self.solveTime += self.deltaTime           
-        elif ((self.snakeState == 0 or self.snakeState == 2) and pygame.key.get_pressed()[K_RETURN]):
+        elif ((self.puzzleState == 0 or self.puzzleState == 2) and pygame.key.get_pressed()[K_RETURN]):
             self.resetPuzzle(1)     
         if (pygame.key.get_pressed()[K_LEFT] or pygame.key.get_pressed()[K_DOWN]):
-            if ((not self.toggledLeftArrowThisPress) and self.snakeState != 1): #attempt to pause or unpause, but only if the game is active
+            if ((not self.toggledLeftArrowThisPress) and self.puzzleState != 1): #attempt to pause or unpause, but only if the game is active
                 self.gridSize = max(self.gridSize-1,2)
                 self.toggledLeftArrowThisPress = True
         else:
             self.toggledLeftArrowThisPress = False
         
         if (pygame.key.get_pressed()[K_RIGHT] or pygame.key.get_pressed()[K_UP]):
-            if ((not self.toggledRightArrowThisPress) and self.snakeState != 1): #attempt to pause or unpause, but only if the game is active
+            if ((not self.toggledRightArrowThisPress) and self.puzzleState != 1): #attempt to pause or unpause, but only if the game is active
                 self.gridSize = min(self.gridSize+1,12)
                 self.toggledRightArrowThisPress = True
         else:
             self.toggledRightArrowThisPress = False
             
         if (pygame.key.get_pressed()[K_f]):
-            if ((not self.toggledFThisPress) and self.snakeState != 1): #attempt to pause or unpause, but only if the game is active
+            if ((not self.toggledFThisPress) and self.puzzleState != 1): #attempt to pause or unpause, but only if the game is active
                 root = Tk()
                 root.withdraw()
                 fileName = askopenfilename(title = "Select An Image") 
@@ -161,14 +161,14 @@ class SlidingPuzzle():
             self.toggledFThisPress = False
             
         if (pygame.key.get_pressed()[K_q]):
-            if ((not self.toggledQThisPress) and self.snakeState == 1): #attempt to pause or unpause, but only if the game is active
-                self.snakeState = 2
+            if ((not self.toggledQThisPress) and self.puzzleState == 1): #attempt to pause or unpause, but only if the game is active
+                self.puzzleState = 2
                 self.toggledQThisPress = True
         else:
             self.toggledQThisPress = False
             
         if (pygame.mouse.get_pressed()[0]):
-            if ((not self.clickedMouseThisPress) and self.snakeState == 1): #attempt to pause or unpause, but only if the game is active
+            if ((not self.clickedMouseThisPress) and self.puzzleState == 1): #attempt to pause or unpause, but only if the game is active
                 self.checkMouseClickPuzzle()
                 self.clickedMouseThisPress = True
         else:
@@ -184,29 +184,29 @@ class SlidingPuzzle():
     
     def drawPuzzle(self,screen):                
         #draw on-screen message and image preview if game is not running
-        if (self.snakeState != 1):
-            instructionRect = pygame.Rect(0+self.xOffset, self.snakeScorePaneHeight+self.yOffset, self.snakeFieldWidth, self.snakeFieldHeight + 120*((len(self.instructions))/2))
+        if (self.puzzleState != 1):
+            instructionRect = pygame.Rect(0+self.xOffset, self.puzzleScorePaneHeight+self.yOffset, self.puzzleFieldWidth, self.puzzleFieldHeight + 120*((len(self.instructions))/2))
             screen.blit(self.smallImage,instructionRect)
             for line in self.instructions:
-                # + ("Press Enter to Play" if self.snakeState == 0 else "Press Enter to Restart")
+                # + ("Press Enter to Play" if self.puzzleState == 0 else "Press Enter to Restart")
                 self.drawCenteredSurface(self.font.render(line, 1, (0,0,0)), instructionRect,screen)  
                 instructionRect.bottom -= 60
-            self.drawCenteredSurface(self.font.render("Press Enter to Play" if self.snakeState == 0 else "Press Enter to Restart", 1, (0,0,0)), instructionRect,screen)  
+            self.drawCenteredSurface(self.font.render("Press Enter to Play" if self.puzzleState == 0 else "Press Enter to Restart", 1, (0,0,0)), instructionRect,screen)  
             
         #draw top pane contents
         self.drawCenteredSurface(self.font.render("Grid Size: " + str(self.gridSize) + "     Time: %.2f" % self.solveTime + "s", 1, (0,0,0)), 
-                         pygame.Rect(0, 0, self.screenWidth,self.snakeScorePaneHeight),screen)   
+                         pygame.Rect(0, 0, self.screenWidth,self.puzzleScorePaneHeight),screen)   
         
         #draw image puzzle
-        if (self.snakeState == 1):
+        if (self.puzzleState == 1):
             for i in range(len(self.puzzlePieces)):
                 for r in range(len(self.puzzlePieces[i])):
                     if (not (self.puzzlePieces[i][r].isDummy)):
-                        screen.blit(self.puzzlePieces[i][r].image,(self.xOffset+self.puzzlePieces[i][r].x*self.gridSquareWidth,self.snakeScorePaneHeight+self.yOffset+self.puzzlePieces[i][r].y*self.gridSquareHeight))
+                        screen.blit(self.puzzlePieces[i][r].image,(self.xOffset+self.puzzlePieces[i][r].x*self.gridSquareWidth,self.puzzleScorePaneHeight+self.yOffset+self.puzzlePieces[i][r].y*self.gridSquareHeight))
 
         #draw win text
         if (self.won):
-            self.drawCenteredSurface(self.font.render("Congratulations, You Solved the Board!", 1, (0,0,200)), pygame.Rect(0+self.xOffset, self.snakeScorePaneHeight+self.yOffset, self.snakeFieldWidth, self.snakeFieldHeight + 240*((len(self.instructions))/2)), screen)
+            self.drawCenteredSurface(self.font.render("Congratulations, You Solved the Board!", 1, (0,0,200)), pygame.Rect(0+self.xOffset, self.puzzleScorePaneHeight+self.yOffset, self.puzzleFieldWidth, self.puzzleFieldHeight + 240*((len(self.instructions))/2)), screen)
 
 def main(): #this function is called when the program starts. it initializes everything it needs, then runs in a loop until the function returns.
     pygame.init() #initialize the pygame engine
