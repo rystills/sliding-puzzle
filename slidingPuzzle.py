@@ -31,6 +31,7 @@ class SlidingPuzzle():
 		self.toggledQThisPress = False
 		self.toggledFThisPress = False
 		self.clickedMouseThisPress = False
+		self.toggledEnterThisPress = False
 		self.font = pygame.font.Font(None, 46) #large font used for text rendering
 		self.gridSize = 4 #width and height of grid (total size will be gridSize^2)
 		self.instructions = ["Press the arrow keys to adjust grid size","Press F to load a custom image file","Press Q to quit the current puzzle"]
@@ -101,11 +102,43 @@ class SlidingPuzzle():
 				for r in range(self.gridSize):
 					self.randomizedPuzzlePieces[i][r].x = i
 					self.randomizedPuzzlePieces[i][r].y = r
-			self.puzzlePieces[self.gridSize-1][0].isDummy = True #dummy the top-right corner piece, and swap it into the top-right corner if it isn't already there
-			self.dummyPiece = self.puzzlePieces[self.gridSize-1][0]
-			if (self.puzzlePieces[self.gridSize-1][0].x != self.gridSize-1 or self.puzzlePieces[self.gridSize-1][0].y != 0):
-				self.swapPieces(self.puzzlePieces[self.gridSize-1][0],self.randomizedPuzzlePieces[self.gridSize-1][0])
-			self.checkBoardSolved()
+			self.puzzlePieces[self.gridSize-1][self.gridSize-1].isDummy = True #dummy the bottom-right corner piece, and swap it into the bottom-right corner if it isn't already there
+			self.dummyPiece = self.puzzlePieces[self.gridSize-1][self.gridSize-1]
+			if (self.puzzlePieces[self.gridSize-1][self.gridSize-1].x != self.gridSize-1 or self.puzzlePieces[self.gridSize-1][self.gridSize-1].y != self.gridSize-1):
+				self.swapPieces(self.puzzlePieces[self.gridSize-1][self.gridSize-1],self.randomizedPuzzlePieces[self.gridSize-1][self.gridSize-1])
+			self.makeBoardSolvable() #ensure that the board can be solved
+			self.checkBoardSolved() #check if the board happened to be generated already solved
+	
+	def inversionCount(self):
+		inversionNum = 0;
+		for i in range(self.gridSize*self.gridSize - 1):
+			for j in range(i+1,self.gridSize*self.gridSize):
+				#count all values where i's correct value is greater than j's, but i's randomized value is less than j's
+				if not self.comparePieces(self.randomizedPuzzlePieces[i%self.gridSize][i//self.gridSize], self.randomizedPuzzlePieces[j%self.gridSize][j//self.gridSize]):
+					inversionNum += 1
+		#print(inversionNum)
+		return inversionNum
+	
+	def comparePieces(self,pieceA,pieceB):
+		#print("aX: " + str(pieceA.x) + ", aY: " + str(pieceA.y) + ", acorX: " + str(pieceA.correctX) + ", acorY: " + str(pieceA.correctY) + ", bX: " + str(pieceB.x) + ", bY: " + str(pieceB.y) + ", bcorX: " + str(pieceB.correctX) + ", bcorY: " + str(pieceB.correctY) + ", eval: " + str(pieceA.isDummy or pieceB.isDummy or (pieceA.correctY < pieceB.correctY or (pieceA.correctY == pieceB.correctY and pieceA.correctX < pieceB.correctX))))
+		return pieceA.isDummy or pieceB.isDummy or (pieceA.correctY < pieceB.correctY or (pieceA.correctY == pieceB.correctY and pieceA.correctX < pieceB.correctX))
+	
+	def makeBoardSolvable(self):
+		#print("solvable? : " + str(self.checkBoardSolvable()))
+		if (not self.checkBoardSolvable()): #if board is not solvable, we can make it solvable by swapping the first two pieces
+			self.swapPieces(self.randomizedPuzzlePieces[0][0], self.randomizedPuzzlePieces[1][0])
+		#print("solvable? : " + str(self.checkBoardSolvable()))
+	
+	def checkBoardSolvable(self):
+		invCount = self.inversionCount()
+		#if gridSize is odd, board is solvable if inversion count is even
+		if (self.gridSize % 2 == 1):
+			return (invCount % 2 == 0)
+		else: #grid is even, board is solvable if dummy is an even row counting from bottom to top and inversion count is odd, or if the reverse is true
+			if ((self.gridSize - self.dummyPiece.y) % 2 == 0):
+				return (invCount % 2 == 1)
+			else:
+				return (invCount % 2 == 0)
 	
 	def tryShiftPiece(self,x,y):
 		#print("x: " + str(x) + ", dummyX: " + str(self.dummyPiece.x) + ", y: " + str(y) + ", dummyY: "  + str(self.dummyPiece.y))
@@ -143,7 +176,7 @@ class SlidingPuzzle():
 	def checkPuzzleInput(self): #Handle Input Events   
 		if (self.puzzleState == 1):   
 			self.solveTime += self.deltaTime		   
-		elif ((self.puzzleState == 0 or self.puzzleState == 2) and pygame.key.get_pressed()[K_RETURN]):
+		if self.checkKeyToggle("toggledEnterThisPress",True,[K_RETURN]):
 			self.resetPuzzle(1)   
 		if self.checkKeyToggle("toggledLeftArrowThisPress",True,[K_LEFT,K_DOWN]):
 		 	self.gridSize = max(self.gridSize-1,2)
@@ -157,6 +190,7 @@ class SlidingPuzzle():
 				self.loadPuzzleImage(fileName)
 			root.destroy()	
 		elif self.checkKeyToggle("toggledQThisPress",False,[K_q]):
+			if (self.puzzleState == 1):
 				self.puzzleState = 2
 				self.toggledQThisPress = True
 		elif self.checkKeyToggle("clickedMouseThisPress",False,["mb0"]):
