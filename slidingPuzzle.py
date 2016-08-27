@@ -93,7 +93,6 @@ class SlidingPuzzle():
 			for r in range(self.gridSize):
 				if (self.randomizedPuzzlePieces[i][r].x != self.randomizedPuzzlePieces[i][r].correctX or self.randomizedPuzzlePieces[i][r].y != self.randomizedPuzzlePieces[i][r].correctY):
 					return
-		self.puzzleState = 2
 		self.won = True 
 		
 	def resetPuzzle(self,newState = 0):
@@ -230,7 +229,9 @@ class SlidingPuzzle():
 				piece.x = piece.animationStartX + (piece.animationEndX - piece.animationStartX) * (self.animationElapsedTime / self.animationTotalTime)
 				piece.y = piece.animationStartY + (piece.animationEndY - piece.animationStartY) * (self.animationElapsedTime / self.animationTotalTime)
 		if (self.animationElapsedTime == self.animationTotalTime):
-			self.animatedPieces = []			
+			self.animatedPieces = []		
+			if (self.won):
+				self.puzzleState = 2	
 			
 	def drawCenteredSurface(self,surface, rect, screen): #set surface.rect center to rect center prior to rendering
 		drawRect = surface.get_rect()
@@ -260,7 +261,7 @@ class SlidingPuzzle():
 						screen.blit(self.puzzlePieces[i][r].image,(self.xOffset+self.puzzlePieces[i][r].x*self.gridSquareWidth,self.puzzleScorePaneHeight+self.yOffset+self.puzzlePieces[i][r].y*self.gridSquareHeight))
 
 		#draw win text
-		if (self.won):
+		if (self.won and self.puzzleState == 2):
 			self.drawCenteredSurface(self.font.render("Congratulations, You Solved the Board!", 1, (0,0,200)), pygame.Rect(0+self.xOffset, self.puzzleScorePaneHeight+self.yOffset, self.puzzleFieldWidth, self.puzzleFieldHeight + 240*((len(self.instructions))/2)), screen)
 
 def main(): #this function is called when the program starts. it initializes everything it needs, then runs in a loop until the function returns.
