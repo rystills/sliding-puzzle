@@ -13,6 +13,7 @@ class ImageSegment():
 		self.isDummy = isDummy
 		self.image = pygame.Surface((cropRect.width,cropRect.height))
 		self.image.blit(fullImage,(0,0), (cropRect.x,cropRect.y,cropRect.width,cropRect.height))
+		self.animated = False
 
 class SlidingPuzzle():
 	def __init__(self, screenWidthIn, screenHeightIn):
@@ -34,6 +35,8 @@ class SlidingPuzzle():
 		self.toggledEnterThisPress = False
 		self.font = pygame.font.Font(None, 46) #large font used for text rendering
 		self.gridSize = 4 #width and height of grid (total size will be gridSize^2)
+		self.animationElapsedTime = 0 #measured in seconds
+		self.animationTotalTime = .4 #measured in seconds
 		self.instructions = ["Press the arrow keys to adjust grid size","Press F to load a custom image file","Press Q to quit the current puzzle"]
 		self.resetPuzzle() #prepare the game for its first run at the end of class instantiation
 	
@@ -62,7 +65,20 @@ class SlidingPuzzle():
 		image = pygame.transform.smoothscale(image,(self.puzzleFieldWidth, self.puzzleFieldHeight))
 		return image
 	
-	def swapPieces(self,pieceA,pieceB):
+	def swapPieces(self,pieceA,pieceB,shouldAnimate = True):
+		if (shouldAnimate):
+			self.animationElapsedTime = 0
+			if (not pieceA.animated):
+				pieceA.animated = True
+				pieceA.animationStartX = pieceA.x
+				pieceA.animationStartY = pieceA.y
+				self.animatedPieces.append(pieceA)
+			if (not pieceB.animated):
+				pieceB.animated = True
+				pieceB.animationStartX = pieceB.x
+				pieceB.animationStartY = pieceB.y
+				self.animatedPieces.append(pieceB)
+		
 		self.randomizedPuzzlePieces[pieceA.x][pieceA.y] = pieceB
 		self.randomizedPuzzlePieces[pieceB.x][pieceB.y] = pieceA
 		pieceAX = pieceA.x
@@ -86,6 +102,7 @@ class SlidingPuzzle():
 		self.solveTime = 0 #time taken to solve the puzzle
 		self.puzzlePieces = [] #2d list of puzzle pieces, where (i,r) correspond to (correctX,correctY)
 		self.randomizedPuzzlePieces = [] #2d list of puzzle pieces, where (i,r) correspond to (x,y)
+		self.animatedPieces = [] #pieces which are mid-animation
 		self.gridSquareWidth = self.puzzleFieldWidth / self.gridSize
 		self.gridSquareHeight = self.puzzleFieldHeight / self.gridSize
 		self.curEmptyX = self.gridSize-1
@@ -105,7 +122,7 @@ class SlidingPuzzle():
 			self.puzzlePieces[self.gridSize-1][self.gridSize-1].isDummy = True #dummy the bottom-right corner piece, and swap it into the bottom-right corner if it isn't already there
 			self.dummyPiece = self.puzzlePieces[self.gridSize-1][self.gridSize-1]
 			if (self.puzzlePieces[self.gridSize-1][self.gridSize-1].x != self.gridSize-1 or self.puzzlePieces[self.gridSize-1][self.gridSize-1].y != self.gridSize-1):
-				self.swapPieces(self.puzzlePieces[self.gridSize-1][self.gridSize-1],self.randomizedPuzzlePieces[self.gridSize-1][self.gridSize-1])
+				self.swapPieces(self.puzzlePieces[self.gridSize-1][self.gridSize-1],self.randomizedPuzzlePieces[self.gridSize-1][self.gridSize-1],False)
 			self.makeBoardSolvable() #ensure that the board can be solved
 			self.checkBoardSolved() #check if the board happened to be generated already solved
 	
@@ -126,7 +143,7 @@ class SlidingPuzzle():
 	def makeBoardSolvable(self):
 		#print("solvable? : " + str(self.checkBoardSolvable()))
 		if (not self.checkBoardSolvable()): #if board is not solvable, we can make it solvable by swapping the first two pieces
-			self.swapPieces(self.randomizedPuzzlePieces[0][0], self.randomizedPuzzlePieces[1][0])
+			self.swapPieces(self.randomizedPuzzlePieces[0][0], self.randomizedPuzzlePieces[1][0],False)
 		#print("solvable? : " + str(self.checkBoardSolvable()))
 	
 	def checkBoardSolvable(self):
@@ -175,7 +192,7 @@ class SlidingPuzzle():
 						
 	def checkPuzzleInput(self): #Handle Input Events   
 		if (self.puzzleState == 1):   
-			self.solveTime += self.deltaTime		   
+			self.solveTime += self.deltaTime
 		if self.checkKeyToggle("toggledEnterThisPress",True,[K_RETURN]):
 			self.resetPuzzle(1)   
 		if self.checkKeyToggle("toggledLeftArrowThisPress",True,[K_LEFT,K_DOWN]):
@@ -192,12 +209,29 @@ class SlidingPuzzle():
 		elif self.checkKeyToggle("toggledQThisPress",False,[K_q]):
 			if (self.puzzleState == 1):
 				self.puzzleState = 2
+				self.animatedPieces = []
 				self.toggledQThisPress = True
-		elif self.checkKeyToggle("clickedMouseThisPress",False,["mb0"]):
+		elif len(self.animatedPieces) == 0 and self.checkKeyToggle("clickedMouseThisPress",False,["mb0"]): #ignore mouse inputs when mid-animation 
 			self.checkMouseClickPuzzle()
 		   
 		return len([event for event in pygame.event.get() if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE)]) == 0 #handle window close or escape key events
 				
+	def checkUpdateAnimations(self):
+		self.animationElapsedTime = min(self.animationElapsedTime + self.deltaTime, self.animationTotalTime)
+		for piece in self.animatedPieces:
+			if (piece.animated):
+				piece.animated = False
+				piece.animationEndX = piece.x
+				piece.animationEndY = piece.y	
+			if (self.animationElapsedTime == self.animationTotalTime):
+				piece.x = piece.animationEndX
+				piece.y = piece.animationEndY
+			else:
+				piece.x = piece.animationStartX + (piece.animationEndX - piece.animationStartX) * (self.animationElapsedTime / self.animationTotalTime)
+				piece.y = piece.animationStartY + (piece.animationEndY - piece.animationStartY) * (self.animationElapsedTime / self.animationTotalTime)
+		if (self.animationElapsedTime == self.animationTotalTime):
+			self.animatedPieces = []			
+			
 	def drawCenteredSurface(self,surface, rect, screen): #set surface.rect center to rect center prior to rendering
 		drawRect = surface.get_rect()
 		drawRect.center = rect.center
@@ -238,6 +272,7 @@ def main(): #this function is called when the program starts. it initializes eve
 	clock = pygame.time.Clock()
 	while gameManager.checkPuzzleInput(): #Main Loop; runs until game is exited
 		gameManager.deltaTime = clock.tick(60) / 1000 #update the game at a steady 60 fps if possible (divide by 1000 to convert from milliseconds to seconds)
+		gameManager.checkUpdateAnimations()
 		screen.fill((160,200,160)) #render the solid color (cool green) background to prepare the screen for a fresh game render	 
 		gameManager.drawPuzzle(screen)
 		pygame.display.flip() #push final screen render to the display
