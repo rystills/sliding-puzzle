@@ -4,7 +4,7 @@ from pygame.locals import QUIT, KEYDOWN, K_UP, K_DOWN, K_LEFT, K_RIGHT, K_RETURN
 from tkinter import *
 from tkinter.filedialog import askopenfilename
 
-class ImageSegment():
+class ImageSegment(): #simple container class to simplify breaking up the puzzle image 
 	def __init__(self,x,y,fullImage,cropRect,isDummy = False):
 		self.correctX = x
 		self.correctY = y
@@ -15,7 +15,7 @@ class ImageSegment():
 		self.image.blit(fullImage,(0,0), (cropRect.x,cropRect.y,cropRect.width,cropRect.height))
 		self.animated = False
 
-class SlidingPuzzle():
+class SlidingPuzzle(): #main game class; houses most game related variables and methods
 	def __init__(self, screenWidthIn, screenHeightIn):
 		#Initialize puzzle variables (positioning variables are measured in pixels, further initialization done in first resetPuzzle() call)
 		self.screenWidth = screenWidthIn #width of the entire screen in pixels
@@ -26,7 +26,6 @@ class SlidingPuzzle():
 		self.puzzleScorePaneHeight = 45 #total size in pixels of the score pane height (the width will be equal to the screen width) 
 		self.xOffset = int((self.screenWidth - self.puzzleFieldWidth - 2) / 2) #subtract 2 as 2 is the border size
 		self.yOffset = int((self.screenHeight - self.puzzleFieldHeight - self.puzzleScorePaneHeight - 2) / 2) #subtract 2 as 2 is the border size
-		#self.slideTimeDuration = .3 #modified time rate used in conjunction with puzzlePreviousTimeInt to determine when ticks should occur
 		self.toggledLeftArrowThisPress = False #variable to keep track of when the left arrow key is pressed, to simulate a 'key press' event that triggers on a single frame only
 		self.toggledRightArrowThisPress = False
 		self.toggledQThisPress = False
@@ -40,7 +39,7 @@ class SlidingPuzzle():
 		self.instructions = ["Press the arrow keys to adjust grid size","Press F to load a custom image file","Press Q to quit the current puzzle"]
 		self.resetPuzzle() #prepare the game for its first run at the end of class instantiation
 	
-	def shufflePieces(self,pieces):
+	def shufflePieces(self,pieces): #shuffle the piece 2dlist by unpacking, randomizing, and repacking the list
 		shuffledList = [item for sublist in pieces for item in sublist]
 		random.shuffle(shuffledList)
 		return [shuffledList[i:i+self.gridSize] for i in range(0, len(shuffledList), self.gridSize)]
@@ -50,14 +49,14 @@ class SlidingPuzzle():
 		self.image = self.loadImage(self.imageName)
 		self.smallImage = pygame.transform.smoothscale(self.image,(int(self.puzzleFieldWidth/4),int(self.puzzleFieldHeight/4)))
 		
-	def loadImage(self, imageName, colorkey=None):
+	def loadImage(self, imageName, convertAlpha=False, colorkey=None): #load an image, optionally setting a colorkey - adapted from the pygame chimp example
 		fullname = os.path.join(imageName)
 		try:
 			image = pygame.image.load(fullname)
 		except:
 			print('Cannot load image:', fullname)
 			raise SystemExit
-		image = image.convert()
+		image = image.convert() if not convertAlpha else image.convert_alpha() #convert_alpha should be used for images with per-pixel alpha transparency 
 		if colorkey is not None:
 			if colorkey is -1:
 				colorkey = image.get_at((0,0))
@@ -65,8 +64,8 @@ class SlidingPuzzle():
 		image = pygame.transform.smoothscale(image,(self.puzzleFieldWidth, self.puzzleFieldHeight))
 		return image
 	
-	def swapPieces(self,pieceA,pieceB,shouldAnimate = True):
-		if (shouldAnimate):
+	def swapPieces(self,pieceA,pieceB,shouldAnimate = True): #swap two pieces, optionally preparing them to be animated (swapPieces calls can safely be chained together)
+		if (shouldAnimate): #prepare position variables if the pieces are to be animated
 			self.animationElapsedTime = 0
 			if (not pieceA.animated):
 				pieceA.animated = True
@@ -78,7 +77,7 @@ class SlidingPuzzle():
 				pieceB.animationStartX = pieceB.x
 				pieceB.animationStartY = pieceB.y
 				self.animatedPieces.append(pieceB)
-		
+		#perform a standard swap on two ImageSegment fields
 		self.randomizedPuzzlePieces[pieceA.x][pieceA.y] = pieceB
 		self.randomizedPuzzlePieces[pieceB.x][pieceB.y] = pieceA
 		pieceAX = pieceA.x
@@ -88,14 +87,14 @@ class SlidingPuzzle():
 		pieceB.x = pieceAX
 		pieceB.y = pieceAY
 	
-	def checkBoardSolved(self):
+	def checkBoardSolved(self): #check if the board is solved, by comparing each piece's position to its correct position
 		for i in range(self.gridSize):
 			for r in range(self.gridSize):
 				if (self.randomizedPuzzlePieces[i][r].x != self.randomizedPuzzlePieces[i][r].correctX or self.randomizedPuzzlePieces[i][r].y != self.randomizedPuzzlePieces[i][r].correctY):
 					return
 		self.won = True 
 		
-	def resetPuzzle(self,newState = 0):
+	def resetPuzzle(self,newState = 0): #reset the game to prepare a new puzzle
 		self.puzzleState = newState #simple state machine used for game state (0 = awaiting first start, 1 = active, 2 = awaiting restart)
 		self.deltaTime = 0 #time passed (in seconds, not milliseconds) this frame/tick (reset here so that delta time from starting frame is not factored into first running frame)
 		self.solveTime = 0 #time taken to solve the puzzle
@@ -125,27 +124,23 @@ class SlidingPuzzle():
 			self.makeBoardSolvable() #ensure that the board can be solved
 			self.checkBoardSolved() #check if the board happened to be generated already solved
 	
-	def inversionCount(self):
+	def inversionCount(self): #count the number of inversions on the board (used by checkBoardSolvable)
 		inversionNum = 0;
 		for i in range(self.gridSize*self.gridSize - 1):
 			for j in range(i+1,self.gridSize*self.gridSize):
 				#count all values where i's correct value is greater than j's, but i's randomized value is less than j's
 				if not self.comparePieces(self.randomizedPuzzlePieces[i%self.gridSize][i//self.gridSize], self.randomizedPuzzlePieces[j%self.gridSize][j//self.gridSize]):
 					inversionNum += 1
-		#print(inversionNum)
 		return inversionNum
 	
 	def comparePieces(self,pieceA,pieceB):
-		#print("aX: " + str(pieceA.x) + ", aY: " + str(pieceA.y) + ", acorX: " + str(pieceA.correctX) + ", acorY: " + str(pieceA.correctY) + ", bX: " + str(pieceB.x) + ", bY: " + str(pieceB.y) + ", bcorX: " + str(pieceB.correctX) + ", bcorY: " + str(pieceB.correctY) + ", eval: " + str(pieceA.isDummy or pieceB.isDummy or (pieceA.correctY < pieceB.correctY or (pieceA.correctY == pieceB.correctY and pieceA.correctX < pieceB.correctX))))
 		return pieceA.isDummy or pieceB.isDummy or (pieceA.correctY < pieceB.correctY or (pieceA.correctY == pieceB.correctY and pieceA.correctX < pieceB.correctX))
 	
-	def makeBoardSolvable(self):
-		#print("solvable? : " + str(self.checkBoardSolvable()))
-		if (not self.checkBoardSolvable()): #if board is not solvable, we can make it solvable by swapping the first two pieces
+	def makeBoardSolvable(self): #check if the board is solvable, flipping the first two pieces if not, in order to guarantee that it is solvable
+		if (not self.checkBoardSolvable()):
 			self.swapPieces(self.randomizedPuzzlePieces[0][0], self.randomizedPuzzlePieces[1][0],False)
-		#print("solvable? : " + str(self.checkBoardSolvable()))
 	
-	def checkBoardSolvable(self):
+	def checkBoardSolvable(self): #check if the board is solvable by counting number of inversions
 		invCount = self.inversionCount()
 		#if gridSize is odd, board is solvable if inversion count is even
 		if (self.gridSize % 2 == 1):
@@ -156,9 +151,8 @@ class SlidingPuzzle():
 			else:
 				return (invCount % 2 == 0)
 	
-	def tryShiftPiece(self,x,y):
-		#print("x: " + str(x) + ", dummyX: " + str(self.dummyPiece.x) + ", y: " + str(y) + ", dummyY: "  + str(self.dummyPiece.y))
-		if (not (self.dummyPiece.x == x or self.dummyPiece.y == y)):
+	def tryShiftPiece(self,x,y): #shift all pieces from x,y to dummy.x,dummy.y, assuming the current piece is not the dummy
+		if ((self.dummyPiece.x == x and self.dummyPiece.y == y) or (not (self.dummyPiece.x == x or self.dummyPiece.y == y))):
 			return
 		isXChange = self.dummyPiece.y == y
 		changeAmount = (((self.dummyPiece.x > x)*2) - 1) if isXChange else (((self.dummyPiece.y > y)*2) - 1)
@@ -166,19 +160,17 @@ class SlidingPuzzle():
 		destPos = self.dummyPiece.x if isXChange else self.dummyPiece.y
 		while (curPos != destPos):
 			curPos += changeAmount
-			#print(str(curPos) + ", " + str(self.dummyPiece.x) + ", " + str(self.dummyPiece.y))
 			if (isXChange):
 				self.swapPieces(self.randomizedPuzzlePieces[x][y], self.randomizedPuzzlePieces[curPos][y])
 			else:
 				self.swapPieces(self.randomizedPuzzlePieces[x][y], self.randomizedPuzzlePieces[x][curPos])
 		self.checkBoardSolved()
 						
-	def checkMouseClickPuzzle(self):
-		if (self.puzzleState == 1):
-			for i in range(self.gridSize):
-				for r in range(self.gridSize):
-					if (pygame.Rect(self.xOffset+self.randomizedPuzzlePieces[i][r].x*self.gridSquareWidth,self.puzzleScorePaneHeight+self.yOffset+self.randomizedPuzzlePieces[i][r].y*self.gridSquareHeight,self.gridSquareWidth,self.gridSquareHeight)).collidepoint(pygame.mouse.get_pos()):
-						self.tryShiftPiece(i,r)
+	def checkMouseClickPuzzle(self): #determine if the mouse position overlaps any ImageSegments
+		for i in range(self.gridSize): #this could be optimized by matching the mouse coordinates to the randomized list indices, rather than looping for O(n) complexity
+			for r in range(self.gridSize):
+				if (pygame.Rect(self.xOffset+self.randomizedPuzzlePieces[i][r].x*self.gridSquareWidth,self.puzzleScorePaneHeight+self.yOffset+self.randomizedPuzzlePieces[i][r].y*self.gridSquareHeight,self.gridSquareWidth,self.gridSquareHeight)).collidepoint(pygame.mouse.get_pos()):
+					self.tryShiftPiece(i,r)
 					
 	def checkKeyToggle(self,stateVarName,requirePuzzleState, keys): #check if any of the specified keys or mouse buttons ('mbx' where 0 <= x <= 2) are pressed
 		if (True in ((pygame.mouse.get_pressed()[int(key[2])] if (isinstance(key,str) and key[:2] == "mb") else pygame.key.get_pressed()[key]) for key in keys)):
@@ -205,24 +197,23 @@ class SlidingPuzzle():
 			if (len(fileName) > 0):
 				self.loadPuzzleImage(fileName)
 			root.destroy()	
-		elif self.checkKeyToggle("toggledQThisPress",False,[K_q]):
-			if (self.puzzleState == 1):
-				self.puzzleState = 2
-				self.animatedPieces = []
-				self.toggledQThisPress = True
-		elif len(self.animatedPieces) == 0 and self.checkKeyToggle("clickedMouseThisPress",False,["mb0"]): #ignore mouse inputs when mid-animation 
+		elif self.checkKeyToggle("toggledQThisPress",False,[K_q]) and self.puzzleState == 1:
+			self.puzzleState = 2
+			self.animatedPieces = []
+			self.toggledQThisPress = True
+		elif len(self.animatedPieces) == 0 and self.checkKeyToggle("clickedMouseThisPress",False,["mb0"]) and self.puzzleState == 1: #ignore mouse inputs when mid-animation 
 			self.checkMouseClickPuzzle()
 		   
 		return len([event for event in pygame.event.get() if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE)]) == 0 #handle window close or escape key events
 				
-	def checkUpdateAnimations(self):
-		self.animationElapsedTime = min(self.animationElapsedTime + self.deltaTime, self.animationTotalTime)
+	def checkUpdateAnimations(self): #update animation timing, and move any currently animated pieces accordingly
+		self.animationElapsedTime = min(self.animationElapsedTime + self.deltaTime, self.animationTotalTime) #don't exceed animationTotalTime
 		for piece in self.animatedPieces:
 			if (piece.animated):
 				piece.animated = False
 				piece.animationEndX = piece.x
 				piece.animationEndY = piece.y	
-			if (self.animationElapsedTime == self.animationTotalTime):
+			if (self.animationElapsedTime == self.animationTotalTime): #assign these values explicitly when animation ends to ensure that decimals are removed
 				piece.x = piece.animationEndX
 				piece.y = piece.animationEndY
 			else:
@@ -230,7 +221,7 @@ class SlidingPuzzle():
 				piece.y = piece.animationStartY + (piece.animationEndY - piece.animationStartY) * (self.animationElapsedTime / self.animationTotalTime)
 		if (self.animationElapsedTime == self.animationTotalTime):
 			self.animatedPieces = []		
-			if (self.won):
+			if (self.won): #win is delayed until animation is done; now we can change states
 				self.puzzleState = 2	
 			
 	def drawCenteredSurface(self,surface, rect, screen): #set surface.rect center to rect center prior to rendering
@@ -238,8 +229,7 @@ class SlidingPuzzle():
 		drawRect.center = rect.center
 		screen.blit(surface,drawRect)
 	
-	def drawPuzzle(self,screen):				
-		#draw on-screen message and image preview if game is not running
+	def drawPuzzle(self,screen): #draw on-screen message and image preview if game is not running
 		if (self.puzzleState != 1):
 			instructionRect = pygame.Rect(0+self.xOffset, self.puzzleScorePaneHeight+self.yOffset, self.puzzleFieldWidth, self.puzzleFieldHeight + 120*((len(self.instructions))/2))
 			screen.blit(self.smallImage,instructionRect)
@@ -257,7 +247,7 @@ class SlidingPuzzle():
 		if (self.puzzleState == 1):
 			for i in range(len(self.puzzlePieces)):
 				for r in range(len(self.puzzlePieces[i])):
-					if (not (self.puzzlePieces[i][r].isDummy)):
+					if (not (self.puzzlePieces[i][r].isDummy)): #don't draw the missing piece
 						screen.blit(self.puzzlePieces[i][r].image,(self.xOffset+self.puzzlePieces[i][r].x*self.gridSquareWidth,self.puzzleScorePaneHeight+self.yOffset+self.puzzlePieces[i][r].y*self.gridSquareHeight))
 
 		#draw win text
